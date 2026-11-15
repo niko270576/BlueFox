@@ -1,0 +1,47 @@
+name: Build Blue Fox ISO
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "bluefox.py"
+      - "build-iso.sh"
+      - ".github/workflows/build-iso.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  iso:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Make room on the disk
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache /usr/local/share/boost || true
+          df -h /
+
+      - name: Build BlueFox.iso
+        run: |
+          docker run --rm --privileged -v "$PWD":/work -w /work debian:bookworm bash build-iso.sh
+          ls -lh BlueFox.iso
+
+      - name: Publish BlueFox.iso
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: bluefox-iso-${{ github.run_number }}
+          name: Blue Fox ISO ${{ github.run_number }}
+          body: |
+            Download **BlueFox.iso** from Assets below.
+            Write it to a USB stick with Rufus (tick a persistent partition to keep your files) and boot the computer from the USB.
+          files: BlueFox.iso
+
+      - name: Keep the build log if something went wrong
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-log
+          path: _build/build.log
+          if-no-files-found: ignore
